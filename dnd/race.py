@@ -1,6 +1,6 @@
 from enum import unique, IntEnum
 
-from game.player import Ability
+from dnd.ability import Ability
 
 
 @unique
@@ -27,7 +27,7 @@ class Human(RaceBase):
     additional_ability = Ability(strength=1, dexterity=1, constitution=1, intelligence=1, wisdom=1, charisma=1)
 
 
-class Halfing(RaceBase):
+class Halfling(RaceBase):
     additional_ability = Ability(dexterity=2)
 
 
