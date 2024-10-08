@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
-ADMIN = os.getenv('ADMIN')
+ADMIN_ID = os.getenv('ADMIN_ID')
 GUILD = discord.Object(id=GUILD_ID)
 
 LOGGER = logging.getLogger("discord")

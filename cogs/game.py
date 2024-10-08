@@ -3,19 +3,21 @@ from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext import commands
 
-from context import GUILD
+from context import GUILD, LOGGER
 from dnd.cls import ClassEnum
 from dnd.game import Game
-from dnd.player import Ability
+from dnd.player import Ability, Player
 from dnd.race import RaceEnum
+from util.database import Database
 
 
 class GameCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.database = Database()
 
     @app_commands.command(name='create')
-    @app_commands.describe(name="name of the player", race="race of the player", cls="class of the player")
+    @app_commands.describe(name="name of the character", race="race of the character", cls="class of the character")
     @app_commands.choices(race=[
         Choice(name='elf', value=RaceEnum.ELF),
         Choice(name='human', value=RaceEnum.HUMAN),
@@ -43,8 +45,18 @@ class GameCog(commands.Cog):
     async def create(self, interaction: discord.Interaction, name: str, race: Choice[int],
                      cls: Choice[int], strength: int, dexterity: int, constitution: int, intelligence: int,
                      wisdom: int, charisma: int):
-        player = Game.create_player(name, RaceEnum(race.value), ClassEnum(cls.value),
+        if Game.load_player(self.database, interaction.user.id) is not None:
+            await interaction.response.send_message("You are already create a character", ephemeral=True,
+                                                    delete_after=3)
+            return
+        player = Game.create_player(self.database, interaction.user.id, name, RaceEnum(race.value),
+                                    ClassEnum(cls.value),
                                     ability=Ability(strength, dexterity, constitution, intelligence, wisdom, charisma))
+        embed = self.stats(player)
+        await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
+
+    @staticmethod
+    def stats(player: Player):
         embed = discord.Embed(title=player.name, description=player.uid)
         embed.add_field(name='Race', value=player.race.__class__.__name__, inline=True)
         embed.add_field(name='Class', value=player.cls.__class__.__name__, inline=True)
@@ -52,7 +64,7 @@ class GameCog(commands.Cog):
         embed.add_field(name='Exp', value=player.show_exp(), inline=True)
         embed.add_field(name='Hit points', value=player.hit_points, inline=True)
         embed.add_field(name='Ability', value=player.show_ability(), inline=False)
-        await interaction.response.send_message(embed=embed)
+        return embed
 
 
 async def setup(bot: commands.Bot):

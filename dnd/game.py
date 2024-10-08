@@ -1,36 +1,21 @@
 from dnd.ability import Ability
+from dnd.cls import ClassEnum
 from dnd.player import Player
-from dnd.cls import ClassEnum, Barbarian, Cleric, Druid, Fighter, Monk, Paladin, Sorcerer, Warlock, Wizard, Bard, \
-    Ranger, Rogue
-from dnd.race import RaceEnum, Elf, Human, Halfling, Dwarf, Gnome, Tiefling, Dragonborn, HalfOrc
+from dnd.race import RaceEnum
+from util.database import Database
 
 
 class Game:
-    race_table = {
-        RaceEnum.ELF: Elf,
-        RaceEnum.HUMAN: Human,
-        RaceEnum.HALFLING: Halfling,
-        RaceEnum.DWARF: Dwarf,
-        RaceEnum.GNOME: Gnome,
-        RaceEnum.TIEFLING: Tiefling,
-        RaceEnum.DRAGONBORN: Dragonborn,
-        RaceEnum.HALF_ORC: HalfOrc,
-    }
-    class_table = {
-        ClassEnum.BARBARIAN: Barbarian,
-        ClassEnum.BARD: Bard,
-        ClassEnum.CLERIC: Cleric,
-        ClassEnum.DRUID: Druid,
-        ClassEnum.FIGHTER: Fighter,
-        ClassEnum.MONK: Monk,
-        ClassEnum.PALADIN: Paladin,
-        ClassEnum.RANGER: Ranger,
-        ClassEnum.ROGUE: Rogue,
-        ClassEnum.SORCERER: Sorcerer,
-        ClassEnum.WARLOCK: Warlock,
-        ClassEnum.WIZARD: Wizard
-    }
 
     @classmethod
-    def create_player(cls, name: str, race: RaceEnum, profession: ClassEnum, ability: Ability):
-        return Player(name, cls.race_table[race](), cls.class_table[profession](), ability)
+    def create_player(cls, database: Database, uid: int, name: str, race: RaceEnum, profession: ClassEnum,
+                      ability: Ability) -> Player:
+        player = Player(name, race, profession, ability)
+        database.insert_player(uid, player.uid, player.name, race, profession, player.level, player.exp,
+                               player.ability.strength, player.ability.dexterity, player.ability.constitution,
+                               player.ability.intelligence, player.ability.wisdom, player.ability.charisma)
+        return player
+
+    @classmethod
+    def load_player(cls, database: Database, uid: int):
+        return database.find_player_by_id(uid)
