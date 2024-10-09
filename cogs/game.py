@@ -1,6 +1,7 @@
 import sqlite3
 import uuid
 from enum import unique, IntEnum
+from typing import Optional
 
 import discord
 from discord import app_commands
@@ -10,7 +11,7 @@ from discord.ext import commands
 from context import GUILD
 
 
-class Ability:
+class Skill:
     def __init__(self, strength: int = 0, dexterity: int = 0, constitution: int = 0, intelligence: int = 0,
                  wisdom: int = 0, charisma: int = 0):
         self.strength = strength
@@ -21,10 +22,10 @@ class Ability:
         self.charisma = charisma
 
     def __add__(self, other):
-        if isinstance(other, Ability):
-            return Ability(self.strength + other.strength, self.dexterity + other.dexterity,
-                           self.constitution + other.constitution, self.intelligence + other.intelligence,
-                           self.wisdom + other.wisdom, self.charisma + other.charisma)
+        if isinstance(other, Skill):
+            return Skill(self.strength + other.strength, self.dexterity + other.dexterity,
+                         self.constitution + other.constitution, self.intelligence + other.intelligence,
+                         self.wisdom + other.wisdom, self.charisma + other.charisma)
         raise TypeError("Ability only can add with Ability.")
 
 
@@ -122,42 +123,42 @@ class RaceEnum(IntEnum):
 
 
 class RaceBase:
-    additional_ability = Ability()
+    additional_skill = Skill()
 
 
 class Elf(RaceBase):
-    additional_ability = Ability(dexterity=2)
+    additional_skill = Skill(dexterity=2)
 
 
 class Human(RaceBase):
-    additional_ability = Ability(strength=1, dexterity=1, constitution=1, intelligence=1, wisdom=1, charisma=1)
+    additional_skill = Skill(strength=1, dexterity=1, constitution=1, intelligence=1, wisdom=1, charisma=1)
 
 
 class Halfling(RaceBase):
-    additional_ability = Ability(dexterity=2)
+    additional_skill = Skill(dexterity=2)
 
 
 class Dwarf(RaceBase):
-    additional_ability = Ability(constitution=2)
+    additional_skill = Skill(constitution=2)
 
 
 class Gnome(RaceBase):
-    additional_ability = Ability(intelligence=2)
+    additional_skill = Skill(intelligence=2)
 
 
 class Tiefling(RaceBase):
-    additional_ability = Ability(intelligence=1, charisma=2)
+    additional_skill = Skill(intelligence=1, charisma=2)
 
 
 class Dragonborn(RaceBase):
-    additional_ability = Ability(strength=2, charisma=1)
+    additional_skill = Skill(strength=2, charisma=1)
 
 
 class HalfOrc(RaceBase):
-    additional_ability = Ability(strength=2, constitution=1)
+    additional_skill = Skill(strength=2, constitution=1)
 
 
-class Player:
+class Character:
     race_table = {
         RaceEnum.ELF: Elf,
         RaceEnum.HUMAN: Human,
@@ -205,19 +206,26 @@ class Player:
         20: 355000
     }
 
-    def __init__(self, name: str, race: RaceEnum, cls: ClassEnum, ability: Ability, uid: int = None,
-                 level: int = 1, exp: int = 0):
+    def __init__(self, name: str, race: RaceEnum, cls: ClassEnum, skill: Skill, uid: Optional[str] = None,
+                 level: int = 1, exp: int = 0, max_hit_points: Optional[int] = None, remaining_skill_points: int = 0):
         if uid is None:
-            self.uid = uuid.uuid4().int
+            self.uid = uuid.uuid4()
         else:
-            self.uid = uid
+            self.uid = uuid.UUID(hex=uid)
         self.name = name
+        self.race_enum = race
         self.race = self.race_table[race]
+        self.cls_enum = cls
         self.cls = self.class_table[cls]
-        self.ability = ability
+        self.skill = skill
         self.level = level
-        self.hit_points = self.cls.first_hit
         self.exp = exp
+        if max_hit_points is None:
+            self.max_hit_points = self.cls.first_hit
+        else:
+            self.max_hit_points = max_hit_points
+        self.hit_points = self.max_hit_points
+        self.remaining_skill_points = remaining_skill_points
 
     def level_up(self):
         if self.level >= 20:
@@ -228,10 +236,10 @@ class Player:
         self.level += 1
 
     def show_exp(self):
-        return f"{self.exp}/{self.exp_table[self.level]}"
+        return f"{self.exp}/{self.exp_table[self.level + 1]}"
 
-    def show_ability(self):
-        return f"`STR` {self.ability.strength} `DEX` {self.ability.dexterity} `CON` {self.ability.constitution} `INT` {self.ability.intelligence} `WIS` {self.ability.wisdom} `CHA` {self.ability.charisma}"
+    def show_skill(self):
+        return f"`STR` {self.skill.strength} `DEX` {self.skill.dexterity} `CON` {self.skill.constitution} `INT` {self.skill.intelligence} `WIS` {self.skill.wisdom} `CHA` {self.skill.charisma}"
 
 
 class Database:
@@ -241,46 +249,47 @@ class Database:
         self.initial_tables()
 
     def initial_tables(self):
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS player(id INT, character_id INT)")
-        self.cursor.execute(
-            "CREATE TABLE IF NOT EXISTS character(id INT, name TEXT, race INT, class INT, level INT, exp INT, "
-            "strength INT, dexterity INT, constitution INT, intelligence INT, wisdom INT, charisma INT)")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS player(id INT, character_id TEXT)")
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS character(id TEXT, name TEXT, race INT, class INT, level INT, exp INT, 
+            max_hit_points INT,  strength INT, dexterity INT, constitution INT, intelligence INT, wisdom INT, 
+            charisma INT)
+        ''')
 
-    def insert_player(self, uid: int, character_id: int, name: str, race: int, cls: int, level: int, exp: int,
-                      strength: int, dexterity: int, constitution: int, intelligence: int, wisdom: int,
-                      charisma: int) -> None:
-        self.cursor.execute(f"INSERT INTO player(id, character_id) VALUES ({uid}, {character_id})")
-        self.cursor.execute(
-            f"INSERT INTO character(id, name, race, class, level, exp, "
-            f"strength, dexterity, constitution, intelligence, wisdom, charisma) VALUES ("
-            f"{character_id}, '{name}', {race}, {cls}, {level}, {exp}, "
-            f"{strength}, {dexterity}, {constitution}, {intelligence}, {wisdom}, {charisma})")
+    def insert_character(self, uid: int, character: Character) -> None:
+        skill = character.skill
+        self.cursor.execute(f"INSERT INTO player(id, character_id) VALUES ({uid}, '{character.uid}')")
+        self.cursor.execute(f'''
+            INSERT INTO character VALUES (
+            '{character.uid}', '{character.name}', {character.race_enum}, {character.cls_enum}, {character.level}, {character.exp}, 
+            {character.max_hit_points}, {skill.strength}, {skill.dexterity}, {skill.constitution},
+            {skill.intelligence}, {skill.wisdom}, {skill.charisma})
+        ''')
         self.connection.commit()
 
-    def find_player_by_id(self, uid: int):
+    def find_character_by_id(self, uid: int):
         result = self.cursor.execute(f"SELECT character_id FROM player WHERE id = {uid}")
         data = result.fetchone()
         if data:
-            result = self.cursor.execute(f"SELECT * FROM character WHERE id = {data[0]}")
+            result = self.cursor.execute(f"SELECT * FROM character WHERE id = '{data[0]}'")
             data = result.fetchone()
-            return Player(uid=data[0], name=data[1], race=RaceEnum(data[2]), cls=ClassEnum(data[3]), level=data[4],
-                          exp=data[5], ability=Ability(data[6], data[7], data[8], data[9], data[10], data[11]))
+            return Character(uid=data[0], name=data[1], race=RaceEnum(data[2]), cls=ClassEnum(data[3]), level=data[4],
+                             exp=data[5], max_hit_points=data[6],
+                             skill=Skill(data[7], data[8], data[9], data[10], data[11], data[12]))
 
 
 class Game:
 
     @classmethod
-    def create_player(cls, database: Database, uid: int, name: str, race: RaceEnum, profession: ClassEnum,
-                      ability: Ability) -> Player:
-        player = Player(name, race, profession, ability)
-        database.insert_player(uid, player.uid, player.name, race, profession, player.level, player.exp,
-                               player.ability.strength, player.ability.dexterity, player.ability.constitution,
-                               player.ability.intelligence, player.ability.wisdom, player.ability.charisma)
-        return player
+    def create_character(cls, database: Database, uid: int, name: str, race: RaceEnum, profession: ClassEnum,
+                         skill: Skill) -> Character:
+        character = Character(name, race, profession, skill)
+        database.insert_character(uid, character)
+        return character
 
     @classmethod
-    def load_player(cls, database: Database, uid: int):
-        return database.find_player_by_id(uid)
+    def load_character(cls, database: Database, uid: int):
+        return database.find_character_by_id(uid)
 
 
 class GameCog(commands.Cog):
@@ -317,25 +326,36 @@ class GameCog(commands.Cog):
     async def create(self, interaction: discord.Interaction, name: str, race: Choice[int],
                      cls: Choice[int], strength: int, dexterity: int, constitution: int, intelligence: int,
                      wisdom: int, charisma: int):
-        if Game.load_player(self.database, interaction.user.id) is not None:
+        if Game.load_character(self.database, interaction.user.id) is not None:
             await interaction.response.send_message("You are already create a character", ephemeral=True,
                                                     delete_after=3)
             return
-        player = Game.create_player(self.database, interaction.user.id, name, RaceEnum(race.value),
-                                    ClassEnum(cls.value),
-                                    ability=Ability(strength, dexterity, constitution, intelligence, wisdom, charisma))
-        embed = self.stats(player)
+        character = Game.create_character(self.database, interaction.user.id, name, RaceEnum(race.value),
+                                          ClassEnum(cls.value),
+                                          skill=Skill(strength, dexterity, constitution, intelligence, wisdom,
+                                                      charisma))
+        embed = self.embed_stats(character)
         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
 
+    @app_commands.command(name='stats')
+    async def stats(self, interaction: discord.Interaction):
+        character = Game.load_character(self.database, interaction.user.id)
+        if character is None:
+            await interaction.response.send_message("You have to create a character first", ephemeral=True,
+                                                    delete_after=3)
+            return
+        embed = self.embed_stats(character)
+        await interaction.response.send_message(embed=embed)
+
     @staticmethod
-    def stats(player: Player):
-        embed = discord.Embed(title=player.name, description=player.uid)
-        embed.add_field(name='Race', value=player.race.__class__.__name__, inline=True)
-        embed.add_field(name='Class', value=player.cls.__class__.__name__, inline=True)
-        embed.add_field(name='Level', value=player.level, inline=True)
-        embed.add_field(name='Exp', value=player.show_exp(), inline=True)
-        embed.add_field(name='Hit points', value=player.hit_points, inline=True)
-        embed.add_field(name='Ability', value=player.show_ability(), inline=False)
+    def embed_stats(character: Character):
+        embed = discord.Embed(title=character.name, description=character.uid)
+        embed.add_field(name='Race', value=character.race.__name__, inline=True)
+        embed.add_field(name='Class', value=character.cls.__name__, inline=True)
+        embed.add_field(name='Level', value=character.level, inline=True)
+        embed.add_field(name='Exp', value=character.show_exp(), inline=True)
+        embed.add_field(name='Hit points', value=character.hit_points, inline=True)
+        embed.add_field(name='Ability', value=character.show_skill(), inline=False)
         return embed
 
 
