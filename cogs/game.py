@@ -158,6 +158,19 @@ class HalfOrc(RaceBase):
     additional_skill = Skill(strength=2, constitution=1)
 
 
+@unique
+class Alignment(IntEnum):
+    LAWFUL_GOOD = 0
+    NEUTRAL_GOOD = 1
+    CHAOTIC_GOOD = 2
+    LAWFUL_NEUTRAL = 3
+    NEUTRAL = 4
+    CHAOTIC_NEUTRAL = 5
+    LAWFUL_BAD = 6
+    NEUTRAL_BAD = 7
+    CHAOTIC_BAD = 8
+
+
 class Character:
     race_table = {
         RaceEnum.ELF: Elf,
