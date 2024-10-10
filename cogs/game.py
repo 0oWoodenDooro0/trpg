@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext import commands
 
+from cogs.dice import Dice
 from context import GUILD
 
 
@@ -159,16 +160,16 @@ class HalfOrc(RaceBase):
 
 
 @unique
-class Alignment(IntEnum):
+class AlignmentEnum(IntEnum):
     LAWFUL_GOOD = 0
     NEUTRAL_GOOD = 1
     CHAOTIC_GOOD = 2
     LAWFUL_NEUTRAL = 3
     NEUTRAL = 4
     CHAOTIC_NEUTRAL = 5
-    LAWFUL_BAD = 6
-    NEUTRAL_BAD = 7
-    CHAOTIC_BAD = 8
+    LAWFUL_EVIL = 6
+    NEUTRAL_EVIL = 7
+    CHAOTIC_EVIL = 8
 
 
 class Character:
@@ -253,6 +254,60 @@ class Character:
 
     def show_skill(self):
         return f"`STR` {self.skill.strength} `DEX` {self.skill.dexterity} `CON` {self.skill.constitution} `INT` {self.skill.intelligence} `WIS` {self.skill.wisdom} `CHA` {self.skill.charisma}"
+
+
+class Monster:
+    challenge_table = {
+        "0": 10,
+        "1/8": 25,
+        "1/4": 50,
+        "1/2": 100,
+        "1": 200,
+        "2": 450,
+        "3": 700,
+        "4": 1100,
+        "5": 1800,
+        "6": 2300,
+        "7": 2900,
+        "8": 3900,
+        "9": 5000,
+        "10": 5900,
+        "11": 7200,
+        "12": 8400,
+        "13": 1000,
+        "14": 11500,
+        "15": 13000,
+        "16": 15000,
+        "17": 18000,
+        "18": 20000,
+        "19": 22000,
+        "20": 25000,
+        "21": 33000,
+        "22": 41000,
+        "23": 50000,
+        "24": 62000,
+        "25": 75000,
+        "26": 90000,
+        "27": 105000,
+        "28": 120000,
+        "29": 135000,
+        "30": 155000,
+    }
+
+    def __init__(self, alignment: AlignmentEnum, armor_class: int, hit_points_dice: str, hit_points_fixed: int,
+                 skill: Skill, saving_throws: Skill, challenge: str):
+        self.alignment = alignment
+        self.armor_class = armor_class
+        self.max_hit_points = self.roll_hit_points(hit_points_dice, hit_points_fixed)
+        self.hit_points = self.max_hit_points
+        self.skill = skill
+        self.saving_throws = saving_throws
+        self.challenge = challenge
+        self.exp = self.challenge_table[challenge]
+
+    @staticmethod
+    def roll_hit_points(dice: str, fixed: int):
+        return Dice.roll_by_str(dice) + fixed
 
 
 class Database:

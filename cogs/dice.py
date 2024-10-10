@@ -13,6 +13,15 @@ class Dice:
     def roll(times: int, sided: int) -> int:
         return sum(random.randint(1, sided) for _ in range(times))
 
+    @staticmethod
+    def roll_by_str(dice: str):
+        match = re.match(r'\d+d\d+', dice, re.I)
+        data = dice[match.span()[0]:match.span()[1]].split('d')
+        times = int(data[0])
+        sided = int(data[1])
+        result = Dice.roll(times, sided)
+        return result
+
 
 class DiceCog(commands.Cog):
     def __init__(self, bot):
