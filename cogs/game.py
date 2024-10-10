@@ -1,3 +1,4 @@
+import random
 import sqlite3
 import uuid
 from enum import unique, IntEnum
@@ -28,6 +29,9 @@ class Skill:
                          self.constitution + other.constitution, self.intelligence + other.intelligence,
                          self.wisdom + other.wisdom, self.charisma + other.charisma)
         raise TypeError("Ability only can add with Ability.")
+
+    def show(self):
+        return f"`STR` {self.strength} `DEX` {self.dexterity} `CON` {self.constitution} `INT` {self.intelligence} `WIS` {self.wisdom} `CHA` {self.charisma}"
 
 
 @unique
@@ -252,9 +256,6 @@ class Character:
     def show_exp(self):
         return f"{self.exp}/{self.exp_table[self.level + 1]}"
 
-    def show_skill(self):
-        return f"`STR` {self.skill.strength} `DEX` {self.skill.dexterity} `CON` {self.skill.constitution} `INT` {self.skill.intelligence} `WIS` {self.skill.wisdom} `CHA` {self.skill.charisma}"
-
 
 class Monster:
     challenge_table = {
@@ -294,8 +295,9 @@ class Monster:
         "30": 155000,
     }
 
-    def __init__(self, alignment: AlignmentEnum, armor_class: int, hit_points_dice: str, hit_points_fixed: int,
-                 skill: Skill, saving_throws: Skill, challenge: str):
+    def __init__(self, name: str, alignment: AlignmentEnum, armor_class: int, hit_points_dice: str,
+                 hit_points_fixed: int, skill: Skill, saving_throws: Skill, challenge: str):
+        self.name = name
         self.alignment = alignment
         self.armor_class = armor_class
         self.max_hit_points = self.roll_hit_points(hit_points_dice, hit_points_fixed)
@@ -323,6 +325,13 @@ class Database:
             max_hit_points INT,  strength INT, dexterity INT, constitution INT, intelligence INT, wisdom INT, 
             charisma INT)
         ''')
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS monster(name TEXT, alignment INT, armor_class INT, hit_points_dice TEXT, 
+            hit_points_fixed INT, skill_strength INT, skill_dexterity INT, skill_constitution INT, 
+            skill_intelligence INT, skill_wisdom INT, skill_charisma INT, saving_throws_strength INT, 
+            saving_throws_dexterity INT, saving_throws_constitution INT, saving_throws_intelligence INT, 
+            saving_throws_wisdom INT, saving_throws_charisma INT, challenge TEXT)
+        ''')
 
     def insert_character(self, uid: int, character: Character) -> None:
         skill = character.skill
@@ -345,6 +354,16 @@ class Database:
                              exp=data[5], max_hit_points=data[6],
                              skill=Skill(data[7], data[8], data[9], data[10], data[11], data[12]))
 
+    def find_monsters_by_challenge(self, challenge: str):
+        result = self.cursor.execute(f"SELECT * FROM monster WHERE challenge = '{challenge}'")
+        data_list = result.fetchall()
+        if data_list:
+            return [
+                Monster(name=data[0], alignment=AlignmentEnum(data[1]), armor_class=data[2], hit_points_dice=data[3],
+                        hit_points_fixed=data[4], skill=Skill(data[5], data[6], data[7], data[8], data[9], data[10]),
+                        saving_throws=Skill(data[11], data[12], data[13], data[14], data[15], data[16]),
+                        challenge=data[17]) for data in data_list]
+
 
 class Game:
 
@@ -358,6 +377,12 @@ class Game:
     @classmethod
     def load_character(cls, database: Database, uid: int):
         return database.find_character_by_id(uid)
+
+    @classmethod
+    def load_monster_by_challenge(cls, database: Database, challenge: str):
+        monsters = database.find_monsters_by_challenge(challenge)
+        if monsters:
+            return random.choice(monsters)
 
 
 class GameCog(commands.Cog):
@@ -415,6 +440,15 @@ class GameCog(commands.Cog):
         embed = self.embed_stats(character)
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name='monster')
+    async def monster(self, interaction: discord.Interaction):
+        monster = Game.load_monster_by_challenge(self.database, "10")
+        if monster is None:
+            await interaction.response.send_message("No monster found", ephemeral=True, delete_after=3)
+            return
+        embed = self.embed_monster(monster)
+        await interaction.response.send_message(embed=embed)
+
     @staticmethod
     def embed_stats(character: Character):
         embed = discord.Embed(title=character.name, description=character.uid)
@@ -423,7 +457,17 @@ class GameCog(commands.Cog):
         embed.add_field(name='Level', value=character.level, inline=True)
         embed.add_field(name='Exp', value=character.show_exp(), inline=True)
         embed.add_field(name='Hit points', value=character.hit_points, inline=True)
-        embed.add_field(name='Ability', value=character.show_skill(), inline=False)
+        embed.add_field(name='Skill', value=character.skill.show(), inline=False)
+        return embed
+
+    @staticmethod
+    def embed_monster(monster: Monster):
+        embed = discord.Embed(title=monster.name, description=monster.alignment.name)
+        embed.add_field(name='Armor Class', value=monster.armor_class, inline=True)
+        embed.add_field(name='Hit Points', value=monster.max_hit_points, inline=True)
+        embed.add_field(name='Challenge', value=monster.challenge, inline=True)
+        embed.add_field(name='Skill', value=monster.skill.show(), inline=False)
+        embed.add_field(name='Saving Throws', value=monster.saving_throws.show(), inline=False)
         return embed
 
 
