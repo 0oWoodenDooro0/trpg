@@ -1,7 +1,7 @@
 import random
 import sqlite3
 import uuid
-from enum import unique, IntEnum
+from enum import unique, IntEnum, auto
 from typing import Optional
 
 import discord
@@ -165,15 +165,22 @@ class HalfOrc(RaceBase):
 
 @unique
 class AlignmentEnum(IntEnum):
-    LAWFUL_GOOD = 0
-    NEUTRAL_GOOD = 1
-    CHAOTIC_GOOD = 2
-    LAWFUL_NEUTRAL = 3
-    NEUTRAL = 4
-    CHAOTIC_NEUTRAL = 5
-    LAWFUL_EVIL = 6
-    NEUTRAL_EVIL = 7
-    CHAOTIC_EVIL = 8
+    LAWFUL_GOOD = auto()
+    NEUTRAL_GOOD = auto()
+    CHAOTIC_GOOD = auto()
+    LAWFUL_NEUTRAL = auto()
+    NEUTRAL = auto()
+    CHAOTIC_NEUTRAL = auto()
+    LAWFUL_EVIL = auto()
+    NEUTRAL_EVIL = auto()
+    CHAOTIC_EVIL = auto()
+    UNALIGNED = auto()
+    ANY_ALIGNMENT = auto()
+    ANY_CHAOTIC_ALIGNMENT = auto()
+    ANY_EVIL_ALIGNMENT = auto()
+    ANY_NON_LAWFUL_ALIGNMENT = auto()
+    ANY_NON_CHAOTIC_ALIGNMENT = auto()
+    ANY_NON_GOOD_ALIGNMENT = auto()
 
 
 class Character:
@@ -295,21 +302,23 @@ class Monster:
         "30": 155000,
     }
 
-    def __init__(self, name: str, alignment: AlignmentEnum, armor_class: int, hit_points_dice: str,
-                 hit_points_fixed: int, skill: Skill, saving_throws: Skill, challenge: str):
+    def __init__(self, name: str, alignment: AlignmentEnum, armor_class: int, hit_points_dice_times: int,
+                 hit_points_dice_sided: int, hit_points_fixed: int, skill: Skill, challenge: str):
         self.name = name
         self.alignment = alignment
         self.armor_class = armor_class
-        self.max_hit_points = self.roll_hit_points(hit_points_dice, hit_points_fixed)
+        self.hit_points_dice_times = hit_points_dice_times
+        self.hit_points_dice_sided = hit_points_dice_sided
+        self.hit_points_fixed = hit_points_fixed
+        self.max_hit_points = self.roll_hit_points(hit_points_dice_times, hit_points_dice_sided, hit_points_fixed)
         self.hit_points = self.max_hit_points
         self.skill = skill
-        self.saving_throws = saving_throws
         self.challenge = challenge
         self.exp = self.challenge_table[challenge]
 
     @staticmethod
-    def roll_hit_points(dice: str, fixed: int):
-        return Dice.roll_by_str(dice) + fixed
+    def roll_hit_points(times: int, sided: int, fixed: int):
+        return Dice.roll(times, sided) + fixed
 
 
 class Database:
@@ -326,11 +335,9 @@ class Database:
             charisma INT)
         ''')
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS monster(name TEXT, alignment INT, armor_class INT, hit_points_dice TEXT, 
-            hit_points_fixed INT, skill_strength INT, skill_dexterity INT, skill_constitution INT, 
-            skill_intelligence INT, skill_wisdom INT, skill_charisma INT, saving_throws_strength INT, 
-            saving_throws_dexterity INT, saving_throws_constitution INT, saving_throws_intelligence INT, 
-            saving_throws_wisdom INT, saving_throws_charisma INT, challenge TEXT)
+            CREATE TABLE IF NOT EXISTS monster(name TEXT, alignment INT, armor_class INT, hit_points_dice_times int, 
+            hit_points_dice_sided int, hit_points_fixed INT, skill_strength INT, skill_dexterity INT,
+            skill_constitution INT, skill_intelligence INT, skill_wisdom INT, skill_charisma INT, challenge TEXT)
         ''')
 
     def insert_character(self, uid: int, character: Character) -> None:
@@ -358,11 +365,10 @@ class Database:
         result = self.cursor.execute(f"SELECT * FROM monster WHERE challenge = '{challenge}'")
         data_list = result.fetchall()
         if data_list:
-            return [
-                Monster(name=data[0], alignment=AlignmentEnum(data[1]), armor_class=data[2], hit_points_dice=data[3],
-                        hit_points_fixed=data[4], skill=Skill(data[5], data[6], data[7], data[8], data[9], data[10]),
-                        saving_throws=Skill(data[11], data[12], data[13], data[14], data[15], data[16]),
-                        challenge=data[17]) for data in data_list]
+            return [Monster(name=data[0], alignment=AlignmentEnum(data[1]), armor_class=data[2],
+                            hit_points_dice_times=data[3], hit_points_dice_sided=data[4], hit_points_fixed=data[5],
+                            skill=Skill(data[6], data[7], data[8], data[9], data[10], data[11]), challenge=data[12]) for
+                    data in data_list]
 
 
 class Game:
@@ -441,8 +447,8 @@ class GameCog(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name='monster')
-    async def monster(self, interaction: discord.Interaction):
-        monster = Game.load_monster_by_challenge(self.database, "10")
+    async def monster(self, interaction: discord.Interaction, challenge: str):
+        monster = Game.load_monster_by_challenge(self.database, challenge)
         if monster is None:
             await interaction.response.send_message("No monster found", ephemeral=True, delete_after=3)
             return
@@ -467,7 +473,6 @@ class GameCog(commands.Cog):
         embed.add_field(name='Hit Points', value=monster.max_hit_points, inline=True)
         embed.add_field(name='Challenge', value=monster.challenge, inline=True)
         embed.add_field(name='Skill', value=monster.skill.show(), inline=False)
-        embed.add_field(name='Saving Throws', value=monster.saving_throws.show(), inline=False)
         return embed
 
 
