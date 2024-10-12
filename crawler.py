@@ -5,7 +5,7 @@ import sqlite3
 import requests
 from bs4 import BeautifulSoup
 
-from cogs.game import Skill, Monster, AlignmentEnum
+from cogs.game import Ability, Monster, AlignmentEnum
 
 
 class Database:
@@ -18,17 +18,17 @@ class Database:
         self.cursor.execute('''DROP TABLE IF EXISTS monster''')
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS monster(name TEXT, alignment INT, armor_class INT, hit_points_dice_times int, 
-            hit_points_dice_sided int, hit_points_fixed INT, skill_strength INT, skill_dexterity INT,
-            skill_constitution INT, skill_intelligence INT, skill_wisdom INT, skill_charisma INT, challenge TEXT)
+            hit_points_dice_sided int, hit_points_fixed INT, ability_strength INT, ability_dexterity INT,
+            ability_constitution INT, ability_intelligence INT, ability_wisdom INT, ability_charisma INT, challenge TEXT)
         ''')
 
     def insert_monster(self, monster):
         self.cursor.execute(f'''
             INSERT INTO monster VALUES (
             ?, {monster.alignment}, {monster.armor_class}, {monster.hit_points_dice_times}, 
-            {monster.hit_points_dice_sided}, {monster.hit_points_fixed}, {monster.skill.strength},
-            {monster.skill.dexterity}, {monster.skill.constitution}, {monster.skill.intelligence}, 
-            {monster.skill.wisdom}, {monster.skill.charisma}, '{monster.challenge}')
+            {monster.hit_points_dice_sided}, {monster.hit_points_fixed}, {monster.ability.strength},
+            {monster.ability.dexterity}, {monster.ability.constitution}, {monster.ability.intelligence}, 
+            {monster.ability.wisdom}, {monster.ability.charisma}, '{monster.challenge}')
         ''', (monster.name,))
         self.connection.commit()
 
@@ -89,7 +89,7 @@ class Crawler:
         hit_points_dice_times = None
         hit_points_dice_sided = None
         hit_points_fixed = None
-        skill = None
+        ability = None
         challenge = None
         for column in detail.find_all("tr"):
             match = re.match(r'\s*Armor Class:\s*(\d+)', column.text)
@@ -105,28 +105,29 @@ class Crawler:
                 else:
                     hit_points_fixed = "0"
                 continue
-            skill_table = column.find("table")
-            if skill_table is not None:
-                table = skill_table.find_all("tr")[-1].find_all("td")
-                skill_compile = re.compile(r'\s*(\d+)\s+\([\+\-]\d+\)')
-                if skill_compile.match(table[0].text) and skill_compile.match(table[1].text) and skill_compile.match(
-                        table[2].text) and skill_compile.match(table[3].text) and skill_compile.match(
-                    table[4].text) and skill_compile.match(table[5].text):
-                    skill = Skill(skill_compile.match(table[0].text).group(1),
-                                  skill_compile.match(table[1].text).group(1),
-                                  skill_compile.match(table[2].text).group(1),
-                                  skill_compile.match(table[3].text).group(1),
-                                  skill_compile.match(table[4].text).group(1),
-                                  skill_compile.match(table[5].text).group(1))
+            ability_table = column.find("table")
+            if ability_table is not None:
+                table = ability_table.find_all("tr")[-1].find_all("td")
+                ability_compile = re.compile(r'\s*(\d+)\s+\([\+\-]\d+\)')
+                if ability_compile.match(table[0].text) and ability_compile.match(
+                        table[1].text) and ability_compile.match(table[2].text) and ability_compile.match(
+                        table[3].text) and ability_compile.match(table[4].text) and ability_compile.match(
+                        table[5].text):
+                    ability = Ability(ability_compile.match(table[0].text).group(1),
+                                      ability_compile.match(table[1].text).group(1),
+                                      ability_compile.match(table[2].text).group(1),
+                                      ability_compile.match(table[3].text).group(1),
+                                      ability_compile.match(table[4].text).group(1),
+                                      ability_compile.match(table[5].text).group(1))
             match = re.match(r'\s*Challenge:\s*([\d\/]+)\s*\([\d,]+\s*xp\)', column.text)
             if match is not None:
                 challenge = match.group(1)
 
-        if name and alignment_enum is not None and armor_class is not None and hit_points_dice_times is not None and hit_points_dice_sided is not None and hit_points_fixed is not None and skill and challenge is not None:
+        if name and alignment_enum is not None and armor_class is not None and hit_points_dice_times is not None and hit_points_dice_sided is not None and hit_points_fixed is not None and ability and challenge is not None:
             return Monster(name=name, alignment=alignment_enum, armor_class=int(armor_class),
                            hit_points_dice_times=int(hit_points_dice_times),
                            hit_points_dice_sided=int(hit_points_dice_sided),
-                           hit_points_fixed=int(hit_points_fixed), skill=skill, challenge=challenge)
+                           hit_points_fixed=int(hit_points_fixed), ability=ability, challenge=challenge)
         print(name)
         print(alignment)
         print(alignment_enum)
@@ -134,7 +135,7 @@ class Crawler:
         print(hit_points_dice_times)
         print(hit_points_dice_sided)
         print(hit_points_fixed)
-        print(skill)
+        print(ability)
         print(challenge)
 
 

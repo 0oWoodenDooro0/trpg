@@ -13,7 +13,7 @@ from cogs.dice import Dice
 from context import GUILD
 
 
-class Skill:
+class Ability:
     def __init__(self, strength: int = 0, dexterity: int = 0, constitution: int = 0, intelligence: int = 0,
                  wisdom: int = 0, charisma: int = 0):
         self.strength = strength
@@ -24,10 +24,10 @@ class Skill:
         self.charisma = charisma
 
     def __add__(self, other):
-        if isinstance(other, Skill):
-            return Skill(self.strength + other.strength, self.dexterity + other.dexterity,
-                         self.constitution + other.constitution, self.intelligence + other.intelligence,
-                         self.wisdom + other.wisdom, self.charisma + other.charisma)
+        if isinstance(other, Ability):
+            return Ability(self.strength + other.strength, self.dexterity + other.dexterity,
+                           self.constitution + other.constitution, self.intelligence + other.intelligence,
+                           self.wisdom + other.wisdom, self.charisma + other.charisma)
         raise TypeError("Ability only can add with Ability.")
 
     def show(self):
@@ -36,18 +36,18 @@ class Skill:
 
 @unique
 class ClassEnum(IntEnum):
-    BARBARIAN = 0
-    BARD = 1
-    CLERIC = 2
-    DRUID = 3
-    FIGHTER = 4
-    MONK = 5
-    PALADIN = 6
-    RANGER = 7
-    ROGUE = 8
-    SORCERER = 9
-    WARLOCK = 10
-    WIZARD = 11
+    BARBARIAN = auto()
+    BARD = auto()
+    CLERIC = auto()
+    DRUID = auto()
+    FIGHTER = auto()
+    MONK = auto()
+    PALADIN = auto()
+    RANGER = auto()
+    ROGUE = auto()
+    SORCERER = auto()
+    WARLOCK = auto()
+    WIZARD = auto()
 
 
 class ClassBase:
@@ -117,50 +117,50 @@ class Wizard(ClassBase):
 
 @unique
 class RaceEnum(IntEnum):
-    ELF = 0
-    HUMAN = 1
-    HALFLING = 2
-    DWARF = 3
-    GNOME = 4
-    TIEFLING = 5
-    DRAGONBORN = 6
-    HALF_ORC = 7
+    ELF = auto()
+    HUMAN = auto()
+    HALFLING = auto()
+    DWARF = auto()
+    GNOME = auto()
+    TIEFLING = auto()
+    DRAGONBORN = auto()
+    HALF_ORC = auto()
 
 
 class RaceBase:
-    additional_skill = Skill()
+    additional_ability = Ability()
 
 
 class Elf(RaceBase):
-    additional_skill = Skill(dexterity=2)
+    additional_ability = Ability(dexterity=2)
 
 
 class Human(RaceBase):
-    additional_skill = Skill(strength=1, dexterity=1, constitution=1, intelligence=1, wisdom=1, charisma=1)
+    additional_ability = Ability(strength=1, dexterity=1, constitution=1, intelligence=1, wisdom=1, charisma=1)
 
 
 class Halfling(RaceBase):
-    additional_skill = Skill(dexterity=2)
+    additional_ability = Ability(dexterity=2)
 
 
 class Dwarf(RaceBase):
-    additional_skill = Skill(constitution=2)
+    additional_ability = Ability(constitution=2)
 
 
 class Gnome(RaceBase):
-    additional_skill = Skill(intelligence=2)
+    additional_ability = Ability(intelligence=2)
 
 
 class Tiefling(RaceBase):
-    additional_skill = Skill(intelligence=1, charisma=2)
+    additional_ability = Ability(intelligence=1, charisma=2)
 
 
 class Dragonborn(RaceBase):
-    additional_skill = Skill(strength=2, charisma=1)
+    additional_ability = Ability(strength=2, charisma=1)
 
 
 class HalfOrc(RaceBase):
-    additional_skill = Skill(strength=2, constitution=1)
+    additional_ability = Ability(strength=2, constitution=1)
 
 
 @unique
@@ -231,8 +231,8 @@ class Character:
         20: 355000
     }
 
-    def __init__(self, name: str, race: RaceEnum, cls: ClassEnum, skill: Skill, uid: Optional[str] = None,
-                 level: int = 1, exp: int = 0, max_hit_points: Optional[int] = None, remaining_skill_points: int = 0):
+    def __init__(self, name: str, race: RaceEnum, cls: ClassEnum, ability: Ability, uid: Optional[str] = None,
+                 level: int = 1, exp: int = 0, max_hit_points: Optional[int] = None, remaining_ability_points: int = 0):
         if uid is None:
             self.uid = uuid.uuid4()
         else:
@@ -242,7 +242,7 @@ class Character:
         self.race = self.race_table[race]
         self.cls_enum = cls
         self.cls = self.class_table[cls]
-        self.skill = skill
+        self.ability = ability
         self.level = level
         self.exp = exp
         if max_hit_points is None:
@@ -250,7 +250,7 @@ class Character:
         else:
             self.max_hit_points = max_hit_points
         self.hit_points = self.max_hit_points
-        self.remaining_skill_points = remaining_skill_points
+        self.remaining_ability_points = remaining_ability_points
 
     def level_up(self):
         if self.level >= 20:
@@ -303,7 +303,7 @@ class Monster:
     }
 
     def __init__(self, name: str, alignment: AlignmentEnum, armor_class: int, hit_points_dice_times: int,
-                 hit_points_dice_sided: int, hit_points_fixed: int, skill: Skill, challenge: str):
+                 hit_points_dice_sided: int, hit_points_fixed: int, ability: Ability, challenge: str):
         self.name = name
         self.alignment = alignment
         self.armor_class = armor_class
@@ -312,7 +312,7 @@ class Monster:
         self.hit_points_fixed = hit_points_fixed
         self.max_hit_points = self.roll_hit_points(hit_points_dice_times, hit_points_dice_sided, hit_points_fixed)
         self.hit_points = self.max_hit_points
-        self.skill = skill
+        self.ability = ability
         self.challenge = challenge
         self.exp = self.challenge_table[challenge]
 
@@ -336,18 +336,18 @@ class Database:
         ''')
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS monster(name TEXT, alignment INT, armor_class INT, hit_points_dice_times int, 
-            hit_points_dice_sided int, hit_points_fixed INT, skill_strength INT, skill_dexterity INT,
-            skill_constitution INT, skill_intelligence INT, skill_wisdom INT, skill_charisma INT, challenge TEXT)
+            hit_points_dice_sided int, hit_points_fixed INT, ability_strength INT, ability_dexterity INT,
+            ability_constitution INT, ability_intelligence INT, ability_wisdom INT, ability_charisma INT, challenge TEXT)
         ''')
 
     def insert_character(self, uid: int, character: Character) -> None:
-        skill = character.skill
+        ability = character.ability
         self.cursor.execute(f"INSERT INTO player(id, character_id) VALUES ({uid}, '{character.uid}')")
         self.cursor.execute(f'''
             INSERT INTO character VALUES (
             '{character.uid}', '{character.name}', {character.race_enum}, {character.cls_enum}, {character.level}, {character.exp}, 
-            {character.max_hit_points}, {skill.strength}, {skill.dexterity}, {skill.constitution},
-            {skill.intelligence}, {skill.wisdom}, {skill.charisma})
+            {character.max_hit_points}, {ability.strength}, {ability.dexterity}, {ability.constitution},
+            {ability.intelligence}, {ability.wisdom}, {ability.charisma})
         ''')
         self.connection.commit()
 
@@ -359,7 +359,7 @@ class Database:
             data = result.fetchone()
             return Character(uid=data[0], name=data[1], race=RaceEnum(data[2]), cls=ClassEnum(data[3]), level=data[4],
                              exp=data[5], max_hit_points=data[6],
-                             skill=Skill(data[7], data[8], data[9], data[10], data[11], data[12]))
+                             ability=Ability(data[7], data[8], data[9], data[10], data[11], data[12]))
 
     def find_monsters_by_challenge(self, challenge: str):
         result = self.cursor.execute(f"SELECT * FROM monster WHERE challenge = '{challenge}'")
@@ -367,7 +367,8 @@ class Database:
         if data_list:
             return [Monster(name=data[0], alignment=AlignmentEnum(data[1]), armor_class=data[2],
                             hit_points_dice_times=data[3], hit_points_dice_sided=data[4], hit_points_fixed=data[5],
-                            skill=Skill(data[6], data[7], data[8], data[9], data[10], data[11]), challenge=data[12]) for
+                            ability=Ability(data[6], data[7], data[8], data[9], data[10], data[11]), challenge=data[12])
+                    for
                     data in data_list]
 
 
@@ -375,8 +376,8 @@ class Game:
 
     @classmethod
     def create_character(cls, database: Database, uid: int, name: str, race: RaceEnum, profession: ClassEnum,
-                         skill: Skill) -> Character:
-        character = Character(name, race, profession, skill)
+                         ability: Ability) -> Character:
+        character = Character(name, race, profession, ability)
         database.insert_character(uid, character)
         return character
 
@@ -431,8 +432,8 @@ class GameCog(commands.Cog):
             return
         character = Game.create_character(self.database, interaction.user.id, name, RaceEnum(race.value),
                                           ClassEnum(cls.value),
-                                          skill=Skill(strength, dexterity, constitution, intelligence, wisdom,
-                                                      charisma))
+                                          ability=Ability(strength, dexterity, constitution, intelligence, wisdom,
+                                                          charisma))
         embed = self.embed_stats(character)
         await interaction.response.send_message(embed=embed, ephemeral=True, delete_after=3)
 
@@ -463,7 +464,7 @@ class GameCog(commands.Cog):
         embed.add_field(name='Level', value=character.level, inline=True)
         embed.add_field(name='Exp', value=character.show_exp(), inline=True)
         embed.add_field(name='Hit points', value=character.hit_points, inline=True)
-        embed.add_field(name='Skill', value=character.skill.show(), inline=False)
+        embed.add_field(name='Ability', value=character.ability.show(), inline=False)
         return embed
 
     @staticmethod
@@ -472,7 +473,7 @@ class GameCog(commands.Cog):
         embed.add_field(name='Armor Class', value=monster.armor_class, inline=True)
         embed.add_field(name='Hit Points', value=monster.max_hit_points, inline=True)
         embed.add_field(name='Challenge', value=monster.challenge, inline=True)
-        embed.add_field(name='Skill', value=monster.skill.show(), inline=False)
+        embed.add_field(name='Ability', value=monster.ability.show(), inline=False)
         return embed
 
 
